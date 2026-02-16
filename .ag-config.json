@@ -4,5 +4,5 @@
   "build_command": "npm run build",
   "start_command": "npm start",
   "health_url": "http://localhost:3000",
-  "verification_suite": "ag-check --full"
+  "verification_suite": "python3 .agent/scripts/verify_all.py . --url http://localhost:3000"
 }
