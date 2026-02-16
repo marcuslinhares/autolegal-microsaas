@@ -39,6 +39,34 @@ jobs:
       - name: Verify Production Build
         run: npm run build
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Clone Antigravity Kit
+        run: |
+          git clone https://github.com/marcuslinhares/antigravity-kit.git .agent
+          pip install requests  # Dependência do verify_all.py
+
+      - name: Run Antigravity Full Verification (verify_all.py)
+        run: |
+          # Install wait-on to ensure server is up
+          npm install -g wait-on
+          
+          # Start server in background (using standalone build if available or npm start)
+          npm start &
+          SERVER_PID=$!
+          
+          # Wait for server to be responsive
+          wait-on http://localhost:3000 --timeout 60000
+          
+          # Run full audit
+          python3 .agent/scripts/verify_all.py . --url http://localhost:3000 --no-e2e || true
+          
+          # Stop server
+          kill $SERVER_PID
+
   build-and-push:
     needs: quality-gate
     if: github.event_name == 'push'
