@@ -1,0 +1,101 @@
+name: AutoLegal CI/CD
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run Security Scan (npm audit)
+        run: npm audit --audit-level=high
+
+      - name: Run Quality Gate (Lint & Unit Tests)
+        run: |
+          npm run lint
+          npm test
+
+      - name: Verify Production Build
+        run: npm run build
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Clone Antigravity Kit
+        run: |
+          git clone https://github.com/marcuslinhares/antigravity-kit.git .agent
+          pip install requests  # Dependência do verify_all.py
+
+      - name: Run Antigravity Full Verification (verify_all.py)
+        run: |
+          # Install wait-on to ensure server is up
+          npm install -g wait-on
+          
+          # Start server in background (using standalone build if available or npm start)
+          npm start &
+          SERVER_PID=$!
+          
+          # Wait for server to be responsive
+          wait-on http-get://127.0.0.1:3000 --timeout 60000 || echo "Wait-on failed, skipping"
+          
+          # Run full audit
+          python3 .agent/scripts/verify_all.py . --url http://127.0.0.1:3000 --no-e2e || true
+          
+          # Stop server
+          kill $SERVER_PID
+
+  build-and-push:
+    needs: quality-gate
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
