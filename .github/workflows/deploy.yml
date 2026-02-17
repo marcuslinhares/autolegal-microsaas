@@ -59,10 +59,10 @@ jobs:
           SERVER_PID=$!
           
           # Wait for server to be responsive
-          wait-on http://localhost:3000 --timeout 60000
+          wait-on http://127.0.0.1:3000 --timeout 60000
           
           # Run full audit
-          python3 .agent/scripts/verify_all.py . --url http://localhost:3000 --no-e2e || true
+          python3 .agent/scripts/verify_all.py . --url http://127.0.0.1:3000 --no-e2e || true
           
           # Stop server
           kill $SERVER_PID
