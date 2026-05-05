@@ -13,7 +13,7 @@ export async function analyzeApiRoutes(projectRoot: string): Promise<ApiRouteAna
   const apiRoutes: { path: string; methods: string[] }[] = [];
   let sensitiveRoutesDetected = false;
 
-  const files = await glob('src/app/api/**/*.ts', { cwd: projectRoot, absolute: true });
+  const files = await glob('src/app/api/**/route.ts', { cwd: projectRoot, absolute: true });
 
   for (const file of files) {
     const content = readFileSync(file, 'utf-8');
@@ -26,15 +26,17 @@ export async function analyzeApiRoutes(projectRoot: string): Promise<ApiRouteAna
     }
 
     if (methods.length > 0) {
-      const routePath = file
-        .replace(join(projectRoot, 'src/app'), '')
-        .replace('/api/', '/api/')
-        .replace('/route.ts', '')
+      // Build a clean API path from the file path
+      // e.g. /src/app/api/auth/login/route.ts → /api/auth/login
+      const relativePath = file.replace(projectRoot, '').replace(/\\/g, '/');
+      const routePath = relativePath
+        .replace(/^\/?src\/app\/api\//, '/api/')
+        .replace(/\/route\.ts$/, '')
         .replace(/\[(\w+)\]/g, ':$1');
 
       apiRoutes.push({ path: routePath, methods });
 
-      if (SENSITIVE_KEYWORDS.some(keyword => routePath.includes(keyword))) {
+      if (SENSITIVE_KEYWORDS.some(keyword => routePath.toLowerCase().includes(keyword))) {
         sensitiveRoutesDetected = true;
       }
     }
