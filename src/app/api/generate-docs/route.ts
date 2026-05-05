@@ -3,6 +3,8 @@ import { analyzePackageJson } from '@/services/analyzer';
 import { generateLegalClauseRecommendations } from '@/services/legalClauseGenerator';
 import { generateLegalDocumentContent } from '@/services/aiGenerator';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -60,6 +62,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'An unexpected error occurred.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    // In production, return a generic message to avoid leaking internal details.
+    const sanitized = isDev ? message : 'An internal error occurred while generating documents.';
+    return NextResponse.json({ error: sanitized }, { status: 500 });
   }
 }

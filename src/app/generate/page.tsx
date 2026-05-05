@@ -37,6 +37,19 @@ function validatePackageJson(text: string): string | null {
   }
 }
 
+function RiskBadge({ level }: { level: RiskLevel }) {
+  const colors: Record<RiskLevel, string> = {
+    low: 'bg-green-100 text-green-800 border-green-200',
+    medium: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    high: 'bg-red-100 text-red-800 border-red-200',
+  };
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${colors[level]}`}>
+      {level.charAt(0).toUpperCase() + level.slice(1)} Risk
+    </span>
+  );
+}
+
 export default function GeneratePage() {
   const [packageJson, setPackageJson] = useState('');
   const [generatedDoc, setGeneratedDoc] = useState<string | null>(null);
@@ -46,11 +59,9 @@ export default function GeneratePage() {
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setPackageJson(value);
-    // Clear validation error while typing
-    if (validationError) setValidationError(null);
-  }, [validationError]);
+    setPackageJson(e.target.value);
+    setValidationError(null);
+  }, []);
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,7 +69,6 @@ export default function GeneratePage() {
     setGeneratedDoc(null);
     setMetadata(null);
 
-    // Client-side validation
     const validationErr = validatePackageJson(packageJson);
     if (validationErr) {
       setValidationError(validationErr);
@@ -88,19 +98,6 @@ export default function GeneratePage() {
       setLoading(false);
     }
   }, [packageJson]);
-
-  const riskBadge = (level: RiskLevel) => {
-    const colors: Record<RiskLevel, string> = {
-      low: 'bg-green-100 text-green-800 border-green-200',
-      medium: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      high: 'bg-red-100 text-red-800 border-red-200',
-    };
-    return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${colors[level]}`}>
-        {level.charAt(0).toUpperCase() + level.slice(1)} Risk
-      </span>
-    );
-  };
 
   return (
     <div className="min-h-screen">
@@ -189,7 +186,7 @@ export default function GeneratePage() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold">Generated Documents</h2>
-              {metadata && riskBadge(metadata.riskLevel)}
+              {metadata && <RiskBadge level={metadata.riskLevel} />}
             </div>
 
             {loading && (
